@@ -15,7 +15,8 @@ test.beforeAll(async () => {
         mkdtempSync(join(tmpdir(), "bfx-wallet-")),
         "wallet.db",
       ),
-      SMTP_URL: "",
+      RESEND_API_KEY: "",
+      EMAIL_DELIVERY: "console",
       SESSION_SECRET: "test-session-key-".repeat(4),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -62,12 +63,18 @@ async function signIn(browser: Browser, email: string) {
   await page.goto("/");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByLabel("Email address").fill(email);
-  await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+  await page.getByRole("button", { name: "Send verification code" }).click();
   await expect(page.getByRole("status")).toContainText("Check your email");
-  const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = logs.match(new RegExp(`${escaped}: (http://[^\\s]+)`));
-  expect(match, "Local email contains login URL").toBeTruthy();
-  await page.goto(match![1]);
+  const entry = logs
+    .split("\n")
+    .find((line) => line.startsWith(`[local email code] ${email}: `));
+  expect(
+    entry,
+    "Local test delivery contains a verification code",
+  ).toBeTruthy();
+  const code = entry!.split(": ").at(-1)!;
+  await page.getByLabel("Verification code", { exact: true }).fill(code);
+  await page.getByRole("button", { name: "Verify code", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Create wallet with a passkey" }),
   ).toBeVisible();
@@ -140,28 +147,42 @@ test("create two passkey wallets, receive funds, pay, and reconnect", async ({
   });
   expect(duplicate.status()).toBe(400);
   expect((await duplicate.json()).error).toContain("24 hours");
-  await first.evaluate(()=>window.scrollTo(0,0));
-  await first.evaluate(()=>document.fonts.ready);
+  await first.evaluate(() => window.scrollTo(0, 0));
+  await first.evaluate(() => document.fonts.ready);
   await first.screenshot({
     path: "test-results/wallet-desktop.png",
     fullPage: true,
   });
-  await first.getByRole('button',{name:'Toggle theme'}).click();
-  await expect(first.locator('.bfx-app')).toHaveAttribute('data-theme','light');
-  await first.getByRole('button',{name:'Toggle theme'}).click();
+  await first.getByRole("button", { name: "Toggle theme" }).click();
+  await expect(first.locator(".bfx-app")).toHaveAttribute(
+    "data-theme",
+    "light",
+  );
+  await first.getByRole("button", { name: "Toggle theme" }).click();
   await first.setViewportSize({ width: 390, height: 844 });
-  await first.evaluate(()=>window.scrollTo(0,0));
+  await first.evaluate(() => window.scrollTo(0, 0));
   await first.screenshot({
     path: "test-results/wallet-mobile.png",
     fullPage: true,
   });
-  await first.getByRole('button',{name:'Receive',exact:true}).click();
-  await expect(first.getByRole('dialog',{name:'Receive',exact:true})).toBeVisible();
-  await first.screenshot({path:'test-results/wallet-receive-mobile.png'});
-  await first.getByRole('button',{name:'Close',exact:true}).click();
-  await first.locator('.tabbar').getByRole('button',{name:'Profile',exact:true}).click();
-  await expect(first.getByRole('heading',{name:'Your account'})).toBeVisible();
-  expect(await first.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  await first.getByRole("button", { name: "Receive", exact: true }).click();
+  await expect(
+    first.getByRole("dialog", { name: "Receive", exact: true }),
+  ).toBeVisible();
+  await first.screenshot({ path: "test-results/wallet-receive-mobile.png" });
+  await first.getByRole("button", { name: "Close", exact: true }).click();
+  await first
+    .locator(".tabbar")
+    .getByRole("button", { name: "Profile", exact: true })
+    .click();
+  await expect(
+    first.getByRole("heading", { name: "Your account" }),
+  ).toBeVisible();
+  expect(
+    await first.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
   console.info(
     JSON.stringify({
       firstAddress,

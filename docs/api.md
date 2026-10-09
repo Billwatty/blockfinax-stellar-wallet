@@ -7,8 +7,8 @@ All routes are under `/api`. Mutating requests require `Origin` equal to `APP_OR
 | GET    | `/config`                      | Public testnet/RPC/WASM/token settings and provider availability; no secrets |
 | GET    | `/health`                      | Process health                                                               |
 | GET    | `/me`                          | Signed-in email, registered contract/credential and confirmed activity       |
-| POST   | `/auth/email`                  | `{email}`; deliver ten-minute sign-in link                                   |
-| POST   | `/auth/email/verify`           | `{token}`; consume link and set session cookie                               |
+| POST   | `/auth/email`                  | `{email}`; deliver six-digit Resend code; return `{requestId, message}`      |
+| POST   | `/auth/email/verify`           | `{email, requestId, code}`; consume code and set session cookie              |
 | GET    | `/auth/google`                 | Start Google authorization-code flow                                         |
 | GET    | `/auth/google/callback`        | Validate state and verified Google identity; set session                     |
 | POST   | `/auth/logout`                 | Clear session cookie                                                         |
@@ -23,3 +23,5 @@ All routes are under `/api`. Mutating requests require `Origin` equal to `APP_OR
 The application does not accept arbitrary RPC URLs, token contracts, contract deployments or relay operations from a caller. The `/payments` policy permits only native test XLM from the session's registered wallet. The outer XDR signatures are not trusted for user authority; signed Soroban authorization is verified by Stellar.
 
 Amounts are integers at seven-decimal XLM precision. Example: 5 XLM = `50000000` stroops. Read-only contract balances are queried through simulation. There is no mainnet endpoint or API-key partner authentication in this release.
+
+Email codes expire after five minutes and allow five guesses. A resend is available after 60 seconds and invalidates the earlier code. Delivery failures return an error and cancel the pending code.

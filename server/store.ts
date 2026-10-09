@@ -7,7 +7,7 @@ export class Store {
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
     this.db.exec(
-      `PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL); CREATE TABLE IF NOT EXISTS tokens (digest TEXT PRIMARY KEY,user_id TEXT NOT NULL,expires INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS wallets (user_id TEXT UNIQUE NOT NULL,contract TEXT UNIQUE NOT NULL,credential TEXT UNIQUE NOT NULL,public_key TEXT NOT NULL,counter INTEGER NOT NULL,transports TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, user_id TEXT NOT NULL,kind TEXT NOT NULL,hash TEXT,created INTEGER NOT NULL);`,
+      `PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY,email TEXT UNIQUE NOT NULL); DROP TABLE IF EXISTS tokens; CREATE TABLE IF NOT EXISTS email_codes (email TEXT PRIMARY KEY,request_id TEXT UNIQUE NOT NULL,digest TEXT NOT NULL,expires INTEGER NOT NULL,attempts INTEGER NOT NULL,sent INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS wallets (user_id TEXT UNIQUE NOT NULL,contract TEXT UNIQUE NOT NULL,credential TEXT UNIQUE NOT NULL,public_key TEXT NOT NULL,counter INTEGER NOT NULL,transports TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, user_id TEXT NOT NULL,kind TEXT NOT NULL,hash TEXT,created INTEGER NOT NULL);`,
     );
   }
   user(id: string) {

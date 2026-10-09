@@ -1,11 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  Challenges,
-  issueSession,
-  readSession,
-  digest,
-} from "../server/security.js";
+import { Challenges, issueSession, readSession } from "../server/security.js";
 import { Store } from "../server/store.js";
 import {
   Account,
@@ -32,22 +27,8 @@ test("a challenge is consumed once, including failed verification attempts", () 
   assert.equal(store.take("alice"), "challenge");
   assert.throws(() => store.take("alice"));
 });
-test("login tokens are single use and wallets cannot be reassigned", () => {
+test("wallets cannot be reassigned", () => {
   const db = new Store(":memory:");
-  db.db
-    .prepare("INSERT INTO tokens VALUES(?,?,?)")
-    .run(digest("token"), "alice", Date.now() + 10000);
-  assert.ok(
-    db.db
-      .prepare("DELETE FROM tokens WHERE digest=? RETURNING user_id")
-      .get(digest("token")),
-  );
-  assert.equal(
-    db.db
-      .prepare("DELETE FROM tokens WHERE digest=? RETURNING user_id")
-      .get(digest("token")),
-    undefined,
-  );
   db.db
     .prepare("INSERT INTO wallets VALUES(?,?,?,?,?,?)")
     .run("alice", "C-wallet", "credential", "key", 0, "[]");

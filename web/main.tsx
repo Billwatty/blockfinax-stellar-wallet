@@ -74,6 +74,8 @@ function App() {
   const [kit, setKit] = useState<PasskeyKit>();
   const [unlocked, setUnlocked] = useState(false);
   const [email, setEmail] = useState("");
+  const [emailRequest, setEmailRequest] = useState<string | null>(null);
+  const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -120,15 +122,10 @@ function App() {
         const cfg = await api<Config>("/config");
         setConfig(cfg);
         setKit(new PasskeyKit(cfg));
-        const token = new URLSearchParams(location.search).get("login");
-        if (token) {
-          history.replaceState(null, "", "/");
-          await api("/auth/email/verify", { token });
-        }
         try {
           await refresh();
-        } catch (e) {
-          if (token) setError((e as Error).message);
+        } catch {
+          /* Signed-out visitor. */
         }
       } catch (e) {
         setError((e as Error).message);
@@ -759,13 +756,31 @@ function App() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void run("Sending link", async () => {
-                    const result = await api<{ message: string }>(
-                      "/auth/email",
-                      { email },
-                    );
-                    setMessage(result.message);
-                  });
+                  void run(
+                    emailRequest ? "Verifying code" : "Sending code",
+                    async () => {
+                      if (emailRequest) {
+                        await api("/auth/email/verify", {
+                          email,
+                          requestId: emailRequest,
+                          code,
+                        });
+                        setSheet(null);
+                        setEmailRequest(null);
+                        setCode("");
+                        await refresh();
+                        setMessage("Signed in successfully.");
+                      } else {
+                        const result = await api<{
+                          message: string;
+                          requestId: string;
+                        }>("/auth/email", { email });
+                        setEmailRequest(result.requestId);
+                        setCode("");
+                        setMessage(result.message);
+                      }
+                    },
+                  );
                 }}
               >
                 <div className="field">
@@ -775,17 +790,77 @@ function App() {
                     className="input"
                     type="email"
                     required
+                    readOnly={!!emailRequest}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@company.com"
                   />
                 </div>
+                {emailRequest && (
+                  <div className="field">
+                    <label htmlFor="email-code">Verification code</label>
+                    <input
+                      id="email-code"
+                      className="input otp-input"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]{6}"
+                      minLength={6}
+                      maxLength={6}
+                      required
+                      value={code}
+                      onChange={(e) =>
+                        setCode(e.target.value.replace(/\D/g, ""))
+                      }
+                      placeholder="000000"
+                    />
+                    <p className="hint">
+                      Enter the six-digit code sent to {email}. It expires in 5
+                      minutes.
+                    </p>
+                  </div>
+                )}
                 <button
                   className="btn btn-primary"
                   disabled={!!busy || !config}
                 >
-                  {busy || "Email me a sign-in link"}
+                  {busy ||
+                    (emailRequest ? "Verify code" : "Send verification code")}
                 </button>
+                {emailRequest && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={!!busy}
+                      onClick={() =>
+                        void run("Resending code", async () => {
+                          const result = await api<{
+                            message: string;
+                            requestId: string;
+                          }>("/auth/email", { email });
+                          setEmailRequest(result.requestId);
+                          setCode("");
+                          setMessage(result.message);
+                        })
+                      }
+                    >
+                      Resend code
+                    </button>
+                    <button
+                      type="button"
+                      className="more"
+                      onClick={() => {
+                        setEmailRequest(null);
+                        setCode("");
+                        setMessage("");
+                        setError("");
+                      }}
+                    >
+                      Use another email
+                    </button>
+                  </>
+                )}
               </form>
               <p className="hint">
                 Your passkey approves transactions after sign-in.

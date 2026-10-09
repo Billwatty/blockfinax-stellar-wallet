@@ -5,7 +5,7 @@ import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { z } from "zod";
-import nodemailer from "nodemailer";
+import { EmailOtp, sendCode } from "./otp.js";
 import { OAuth2Client } from "google-auth-library";
 import {
   generateRegistrationOptions,
@@ -17,7 +17,6 @@ import { decodeCredentialPublicKey } from "@simplewebauthn/server/helpers";
 import { Store } from "./store.js";
 import {
   Challenges,
-  digest,
   randomToken,
   issueSession,
   readSession,
@@ -40,12 +39,13 @@ if (secret.length < 32)
   throw Error("Set SESSION_SECRET to at least 32 random characters");
 if (
   process.env.NODE_ENV === "production" &&
-  (!origin.startsWith("https://") || !process.env.SMTP_URL)
+  (!origin.startsWith("https://") || !process.env.RESEND_API_KEY)
 )
-  throw Error("Production requires HTTPS APP_ORIGIN and SMTP_URL");
+  throw Error("Production requires HTTPS APP_ORIGIN and RESEND_API_KEY");
 const secure = origin.startsWith("https://");
 const db = new Store(process.env.DATABASE_PATH);
 const challenges = new Challenges();
+const emailOtp = new EmailOtp(db, secret);
 const deploymentsInFlight = new Set<string>();
 const app = express();
 app.disable("x-powered-by");
@@ -148,36 +148,29 @@ app.get("/api/me", async (req, res) => {
 });
 app.post("/api/auth/email", authLimit, async (req, res) => {
   const email = z.email().max(254).parse(req.body.email).toLowerCase();
-  const id = findUser(email);
-  const token = randomToken();
-  db.db
-    .prepare("INSERT INTO tokens(digest,user_id,expires) VALUES(?,?,?)")
-    .run(digest(token), id, Date.now() + 600_000);
-  const link = `${origin}/?login=${token}`;
-  if (process.env.SMTP_URL) {
-    await nodemailer.createTransport(process.env.SMTP_URL).sendMail({
-      from: process.env.EMAIL_FROM || "BlockFinaX <wallet@blockfinax.com>",
-      to: email,
-      subject: "Sign in to your BlockFinaX test wallet",
-      text: `Your sign-in link expires in 10 minutes:\n${link}\nIf you did not request it, ignore this email.`,
-    });
-  } else {
-    console.info(`[local email delivery] ${email}: ${link}`);
+  const { requestId, code } = emailOtp.issue(email);
+  try {
+    await sendCode(email, code, requestId);
+  } catch (error) {
+    emailOtp.cancel(requestId);
+    throw error;
   }
   res.json({
-    message:
-      "Check your email for your sign-in link. Local development delivers it in the server terminal.",
+    requestId,
+    message: "Check your email for your six-digit sign-in code.",
   });
 });
 app.post("/api/auth/email/verify", authLimit, async (req, res) => {
-  const token = z.string().min(32).max(128).parse(req.body.token);
-  const result = db.db
-    .prepare(
-      "DELETE FROM tokens WHERE digest=? AND expires>? RETURNING user_id",
-    )
-    .get(digest(token), Date.now()) as { user_id: string } | undefined;
-  if (!result) throw Error("Sign-in link expired or already used");
-  await login(res, result.user_id);
+  const input = z
+    .object({
+      email: z.email().max(254),
+      requestId: z.string().min(32).max(128),
+      code: z.string().regex(/^\d{6}$/),
+    })
+    .parse(req.body);
+  const email = input.email.toLowerCase();
+  emailOtp.verify(email, input.requestId, input.code);
+  await login(res, findUser(email));
   res.json({ ok: true });
 });
 function google() {

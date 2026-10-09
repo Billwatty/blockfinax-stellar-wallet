@@ -2,7 +2,7 @@
 
 ## Account creation
 
-The email-link or Google callback creates a BlockFinaX application session. The server generates a WebAuthn challenge tied to that user. After verifying the browser's registration response against the expected challenge, origin, relying party and user-verification requirement, it extracts the P-256 public key and deploys a Passkey Kit smart account with that key as its signer.
+The email-code or Google callback creates a BlockFinaX application session. The server generates a WebAuthn challenge tied to that user. After verifying the browser's registration response against the expected challenge, origin, relying party and user-verification requirement, it extracts the P-256 public key and deploys a Passkey Kit smart account with that key as its signer.
 
 Deployment uses the server's private fee-payer account as its source and hashes the credential ID into the contract salt. We deliberately do not use the public canonical deployer seed for deployment. The backend stores the resulting wallet address with the verified credential. The browser supplies this authenticated registry lookup to Passkey Kit and checks both the stored signer and the pinned executable hash. The fee payer is not installed as a wallet signer.
 
@@ -12,7 +12,7 @@ The browser builds a SEP-41 token transfer, simulates it and requests the user's
 
 ## Storage and network
 
-SQLite holds application identities, hashed login tokens, verified credential public keys/counters, wallet addresses and confirmed activity. Session cookies contain signed, expiring identities. Registration and unlock challenges are short-lived in-memory values; restarting the server cancels pending ceremonies. A single-process queue serializes sponsorship transactions. This release must run as one API process with persistent storage.
+SQLite holds application identities, HMAC-protected email codes, verified credential public keys/counters, wallet addresses and confirmed activity. Session cookies contain signed, expiring identities. Registration and unlock challenges are short-lived in-memory values; restarting the server cancels pending ceremonies. A single-process queue serializes sponsorship transactions. This release must run as one API process with persistent storage.
 
 The initial approved token is Stellar's native asset contract on testnet. Friendbot funds only the sponsor's classic account; the application faucet moves 100 test XLM to the user's contract account. A faucet call is not proof that the user can sign: the payment integration test provides that evidence.
 

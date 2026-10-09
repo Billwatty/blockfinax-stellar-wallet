@@ -11,4 +11,4 @@ Verified on October 9, 2026 with Chromium's virtual P-256 authenticator and real
 
 The browser test confirmed the recipient's balance and reconnected the sender to the same smart account after reload. It also checked that a second faucet request within 24 hours was refused. The test is reproducible with `npm run test:e2e` after setup and build. A testnet reset can remove these historical accounts and transactions.
 
-Four offline security tests cover session integrity, single-use challenges/tokens, unique wallet ownership and sponsorship restrictions. Google and SMTP integrations need operator credentials and are not represented as live-provider tested.
+Eight offline tests cover session integrity, single-use challenges/codes, code expiry and attempt limits, Resend failure handling, unique wallet ownership and sponsorship restrictions. The browser flow also passes with email-code sign-in. Resend accepted a verification-code email to its automated delivery test address using the configured BlockFinaX sender. Google is not represented as live-provider tested.
