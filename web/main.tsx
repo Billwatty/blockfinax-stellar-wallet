@@ -6,6 +6,32 @@ import {
   startAuthentication,
 } from "@simplewebauthn/browser";
 import { PasskeyKit, SACClient } from "passkey-kit";
+import {
+  LayoutDashboard,
+  Shield,
+  TrendingUp,
+  User,
+  Search,
+  Bell,
+  Moon,
+  Sun,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  ArrowUp,
+  ArrowDown,
+  ArrowRight,
+  Gift,
+  Plus,
+  Copy,
+  X,
+  Lock,
+  LogOut,
+  Check,
+  Wallet as WalletIcon,
+} from "lucide-react";
+import "./app-ui.css";
+import "./app-extra.css";
 import "./style.css";
 type Config = {
   networkPassphrase: string;
@@ -54,7 +80,16 @@ function App() {
   const [balance, setBalance] = useState("0");
   const [recipient, setRecipient] = useState("");
   const [quantity, setQuantity] = useState("");
-  const [tab, setTab] = useState("Overview");
+  const [tab, setTab] = useState("Home");
+  const [sheet, setSheet] = useState<string | null>(null);
+  const [hidden, setHidden] = useState(false);
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem("bfx-theme") === "light" ? "light" : "dark",
+  );
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    localStorage.setItem("bfx-theme", theme);
+  }, [theme]);
   async function refresh() {
     const me = await api<Profile>("/me");
     setProfile(me);
@@ -155,96 +190,572 @@ function App() {
       );
     }
   }
-  return (
-    <div className="shell">
-      <aside>
-        <a className="brand" href="/">
-          <img src="/logo.png" alt="BlockFinaX" />
-          <span>
-            BlockFinaX<small>Stellar wallet</small>
-          </span>
-        </a>
-        <div className="network">
-          <i /> Stellar testnet
+  const notice = (
+    <>
+      <div className="testnet-label">
+        <span className="testnet-dot" /> STELLAR TESTNET{" "}
+        <span>Test tokens only</span>
+      </div>
+      {error && (
+        <div role="alert" className="feedback error">
+          {error}
         </div>
-        <nav>
-          {["Overview", "Send payment", "Activity"].map((item) => (
-            <button
-              className={tab === item ? "active" : ""}
-              onClick={() => setTab(item)}
-              key={item}
+      )}
+      {message && (
+        <div role="status" className="feedback success">
+          {message}
+        </div>
+      )}
+    </>
+  );
+  const nav = [
+    { name: "Home", icon: LayoutDashboard },
+    { name: "Cover", icon: Shield },
+    { name: "Earn", icon: TrendingUp },
+    { name: "Profile", icon: User },
+  ];
+  const fullAddress = profile?.wallet?.contract || "";
+  const shortAddress = fullAddress
+    ? `${fullAddress.slice(0, 6)}…${fullAddress.slice(-4)}`
+    : "Create your wallet";
+  const balanceParts = balance.split(".");
+  const copy = () =>
+    void run("Copying", async () => {
+      await navigator.clipboard.writeText(fullAddress);
+      setMessage("Address copied.");
+    });
+  const activity = (
+    <div className="sec">
+      <div className="sec-h">
+        <h2>Recent activity</h2>
+        <button className="more" onClick={() => setSheet("History")}>
+          History <ArrowRight />
+        </button>
+      </div>
+      <div className="list act">
+        {profile?.events.length ? (
+          profile.events.slice(0, 6).map((event, i) => (
+            <a
+              className="row"
+              key={i}
+              href={`https://stellar.expert/explorer/testnet/tx/${event.hash}`}
+              target="_blank"
+              rel="noreferrer"
             >
-              {item}
-            </button>
-          ))}
-        </nav>
-        <div className="aside-note">
-          Build. Test. Integrate.
-          <p>A separate environment for BlockFinaX partners and developers.</p>
-          <a href="https://docs.blockfinax.com/stellar/">
-            Read the Stellar plan ↗
-          </a>
-        </div>
-      </aside>
-      <main>
-        <header>
-          <span>Wallet infrastructure</span>
-          <span>{profile?.email || "Partner sandbox"}</span>
-        </header>
-        <div className="content">
-          <div className="title">
-            <div>
-              <p className="eyebrow">BLOCKFINAX ON STELLAR</p>
-              <h1>
-                {profile
-                  ? "Your testing wallet"
-                  : "A familiar wallet. New rails."}
-              </h1>
-              <p>
-                {profile
-                  ? "Create an account, receive test funds and approve Stellar payments."
-                  : "Sign in with your email or Google. Use a passkey to control your Stellar wallet."}
-              </p>
+              <span className="actico">
+                {event.kind.startsWith("Sent") ? <ArrowUp /> : <ArrowDown />}
+              </span>
+              <div className="r-main">
+                <div className="r1">{event.kind}</div>
+                <div className="r2">
+                  Stellar testnet · {event.hash.slice(0, 6)}…
+                  {event.hash.slice(-4)}
+                </div>
+              </div>
+              <div className="r-side">
+                <div className="v2">
+                  {new Date(event.created).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+            </a>
+          ))
+        ) : (
+          <div className="row">
+            <span className="actico">
+              <TrendingUp />
+            </span>
+            <div className="r-main">
+              <div className="r1">No activity yet</div>
+              <div className="r2">Your test payments show here</div>
             </div>
-            {profile && (
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  const balances = (
+    <div className="topgrid reveal in">
+      <div className={`balance${hidden ? " hidden" : ""}`}>
+        <div className="bal-top">
+          <span className="bal-k">Total balance</span>
+          <button
+            className="eye"
+            aria-label={hidden ? "Show balance" : "Hide balance"}
+            onClick={() => setHidden(!hidden)}
+          >
+            {hidden ? <EyeOff /> : <Eye />}
+          </button>
+          <button
+            className="eye"
+            aria-label="Refresh balance"
+            disabled={!!busy}
+            onClick={() => void run("Refreshing", refresh)}
+          >
+            <RefreshCw className={busy === "Refreshing" ? "spin" : ""} />
+          </button>
+        </div>
+        <div className="bal-num" data-testid="wallet-balance">
+          <span className="int">{hidden ? "••••••" : balanceParts[0]}</span>
+          <span className="cents">
+            {!hidden && balanceParts[1] ? `.${balanceParts[1]}` : ""}
+          </span>
+          <span className="xlm-unit">test XLM</span>
+        </div>
+        <div className="quick">
+          <button className="qa" onClick={() => setSheet("Send")}>
+            <span className="qi">
+              <ArrowUp />
+            </span>
+            <span className="ql">Send</span>
+          </button>
+          <button className="qa" onClick={() => setSheet("Receive")}>
+            <span className="qi">
+              <ArrowDown />
+            </span>
+            <span className="ql">Receive</span>
+          </button>
+          <button className="qa" onClick={() => setTab("Cover")}>
+            <span className="qi">
+              <Shield />
+            </span>
+            <span className="ql">Cover</span>
+          </button>
+        </div>
+      </div>
+      <div className="side-stack">
+        <div className="split-card wallet">
+          <div className="sk">Wallet</div>
+          <div className="sv tnum">
+            {hidden ? "•••••" : balance} <small>XLM</small>
+          </div>
+          <div className="ss">1 test asset</div>
+        </div>
+        <div className="split-card pool">
+          <div className="sk">Pools</div>
+          <div className="sv tnum">—</div>
+          <div className="ss">Stellar pools coming soon</div>
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div className="bfx-app" data-theme={theme}>
+      {!profile ? (
+        <div className="auth-page" aria-hidden={sheet ? true : undefined}>
+          <div className="auth-panel">
+            <img src="/logo.png" alt="BlockFinaX" />
+            <h1>BlockFinaX</h1>
+            <p>Cross-border payments &amp; cover</p>
+            <span className="auth-network">
+              STELLAR TESTNET · Test tokens only
+            </span>
+            <div className="auth-actions">
               <button
-                className="secondary"
-                onClick={() =>
-                  void run("Signing out", async () => {
-                    await api("/auth/logout", {});
-                    kit?.disconnect();
-                    setUnlocked(false);
-                    setProfile(null);
-                  })
-                }
+                className="btn btn-primary"
+                onClick={() => setSheet("Sign in")}
               >
-                Sign out
+                Sign in
               </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setSheet("Create account")}
+              >
+                Create account
+              </button>
+            </div>
+            {error && (
+              <div role="alert" className="feedback error">
+                {error}
+              </div>
+            )}
+            {message && (
+              <div role="status" className="feedback success">
+                {message}
+              </div>
             )}
           </div>
-          <div className="notice">
-            Testnet only · Test XLM has no monetary value.
+        </div>
+      ) : (
+        <>
+          <div className="shell" aria-hidden={sheet ? true : undefined}>
+            <aside className="sidebar">
+              <a href="/" className="sb-logo">
+                <img src="/logo.png" alt="BlockFinaX" />
+                <span className="wm">BlockFinaX</span>
+              </a>
+              <nav className="sb-nav">
+                {nav.map(({ name, icon: Icon }) => (
+                  <button
+                    key={name}
+                    className={`sb-link${tab === name ? " on" : ""}`}
+                    onClick={() => setTab(name)}
+                  >
+                    <Icon />
+                    {name}
+                  </button>
+                ))}
+              </nav>
+            </aside>
+            <main className="main">
+              <header className="appbar">
+                <div className="greeting">
+                  <div className="g1">
+                    {tab === "Home"
+                      ? new Date().getHours() < 12
+                        ? "Good morning"
+                        : new Date().getHours() < 17
+                          ? "Good afternoon"
+                          : "Good evening"
+                      : tab}
+                  </div>
+                  <div className="g2">
+                    {tab === "Home"
+                      ? "Here's your portfolio today"
+                      : "Your BlockFinaX account"}
+                  </div>
+                </div>
+                <button className="ab-acct" onClick={() => setTab("Profile")}>
+                  <span className="ava" />
+                  <span className="meta">
+                    <span className="n">{profile.email.split("@")[0]}</span>
+                    <span className="a">{shortAddress}</span>
+                  </span>
+                </button>
+                <div className="ab-r">
+                  <div className={`hsearch${search ? " open" : ""}`}>
+                    <Search />
+                    <input
+                      aria-label="Search markets"
+                      placeholder="Search markets"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <kbd>⌘K</kbd>
+                    {search && (
+                      <div className="hsearch-dd">
+                        <div className="hs-empty">
+                          Stellar cover markets are coming soon.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <a
+                    className="ab-learn"
+                    href="https://www.blockfinax.com/learn"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Academy
+                  </a>
+                  <button
+                    className="iconbtn"
+                    aria-label="Toggle theme"
+                    onClick={() =>
+                      setTheme(theme === "dark" ? "light" : "dark")
+                    }
+                  >
+                    {theme === "dark" ? <Sun /> : <Moon />}
+                  </button>
+                  <button
+                    className="iconbtn"
+                    aria-label="Notifications"
+                    onClick={() => setSheet("Notifications")}
+                  >
+                    <Bell />
+                  </button>
+                </div>
+              </header>
+              <div className="content">
+                {notice}
+                {!profile.wallet ? (
+                  <div className="sec setup">
+                    <h2>Create your Stellar wallet</h2>
+                    <p>
+                      Create a passkey to control your wallet. Your email or
+                      Google account signs you in; your passkey approves
+                      payments.
+                    </p>
+                    <button
+                      className="btn btn-primary"
+                      disabled={!!busy || !config?.sponsorshipConfigured}
+                      onClick={() => void run("Creating wallet", create)}
+                    >
+                      {busy || "Create wallet with a passkey"}
+                    </button>
+                    <p className="hint">
+                      Keep access to your passkey. Email sign-in cannot recover
+                      a lost signing key.
+                    </p>
+                  </div>
+                ) : tab === "Home" ? (
+                  <>
+                    {balances}
+                    <div className="refer reveal in">
+                      <span className="ri">
+                        <Gift />
+                      </span>
+                      <div className="rc">
+                        <div className="rt">Refer &amp; earn</div>
+                        <div className="rs">
+                          Referral rewards are not enabled on Stellar testnet.
+                        </div>
+                      </div>
+                      <button
+                        className="rx"
+                        onClick={() =>
+                          void run("Copying invitation", async () => {
+                            await navigator.clipboard.writeText(
+                              location.origin,
+                            );
+                            setMessage("Test wallet link copied.");
+                          })
+                        }
+                      >
+                        Invite <ArrowRight />
+                      </button>
+                    </div>
+                    <div className="maingrid reveal in">
+                      <div className="col">
+                        <div className="sec">
+                          <div className="sec-h">
+                            <h2>Live rates</h2>
+                            <div className="seg">
+                              <button className="on">FX</button>
+                              <button
+                                onClick={() =>
+                                  setMessage(
+                                    "Commodity feeds are not available in this Stellar wallet yet.",
+                                  )
+                                }
+                              >
+                                Commodities
+                              </button>
+                            </div>
+                          </div>
+                          <div className="rates">
+                            <div className="rate">
+                              <div className="rk">
+                                <div className="p">
+                                  Oracle integration pending
+                                </div>
+                                <div className="s">
+                                  Emerging-market FX feeds will appear here
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sec">
+                          <div className="sec-h">
+                            <h2>Liquidity positions</h2>
+                            <button
+                              className="more"
+                              onClick={() => setTab("Cover")}
+                            >
+                              Manage <ArrowRight />
+                            </button>
+                          </div>
+                          <div className="list">
+                            <div className="row">
+                              <span className="actico">
+                                <Plus />
+                              </span>
+                              <div className="r-main">
+                                <div className="r1">No positions yet</div>
+                                <div className="r2">
+                                  Stellar cover pools are coming soon
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sec">
+                          <div className="sec-h">
+                            <h2>Assets</h2>
+                            <span className="more">Stellar testnet</span>
+                          </div>
+                          <div className="list">
+                            <div className="row">
+                              <span className="asset-glyph">✦</span>
+                              <div className="r-main">
+                                <div className="r1">Stellar</div>
+                                <div className="r2">Test XLM</div>
+                              </div>
+                              <div className="r-side">
+                                <div className="v1 tnum">
+                                  {hidden ? "••••" : balance} XLM
+                                </div>
+                                <div className="v2">Test asset</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col">
+                        {activity}
+                        <div className="sec">
+                          <div className="sec-h">
+                            <h2>Wallet</h2>
+                            <span className="wallet-state">
+                              {unlocked ? "Unlocked" : "Locked"}
+                            </span>
+                          </div>
+                          <div className="address">
+                            <code data-testid="wallet-address">
+                              {fullAddress}
+                            </code>
+                            <button className="more" onClick={copy}>
+                              <Copy /> Copy address
+                            </button>
+                          </div>
+                          <button
+                            className="btn btn-ghost"
+                            disabled={!!busy}
+                            onClick={() => void run("Unlocking", unlock)}
+                          >
+                            <Lock />
+                            {busy || "Unlock with passkey"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="ctapair reveal in">
+                      <button
+                        className="btn btn-ghost"
+                        onClick={() => setTab("Cover")}
+                      >
+                        <Shield /> Buy cover
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setTab("Earn")}
+                      >
+                        <TrendingUp /> Start earning
+                      </button>
+                    </div>
+                  </>
+                ) : tab === "Profile" ? (
+                  <div className="profile-grid">
+                    <div className="sec">
+                      <div className="sec-h">
+                        <h2>Your account</h2>
+                        <User />
+                      </div>
+                      <div className="profile-item">
+                        <span>Email</span>
+                        <strong>{profile.email}</strong>
+                      </div>
+                      <div className="profile-item">
+                        <span>Network</span>
+                        <strong>Stellar testnet</strong>
+                      </div>
+                      <div className="address">
+                        <code data-testid="wallet-address">{fullAddress}</code>
+                        <button className="more" onClick={copy}>
+                          <Copy /> Copy address
+                        </button>
+                      </div>
+                      <button
+                        className="btn btn-ghost"
+                        onClick={() =>
+                          void run("Signing out", async () => {
+                            await api("/auth/logout", {});
+                            kit?.disconnect();
+                            setUnlocked(false);
+                            setProfile(null);
+                          })
+                        }
+                      >
+                        <LogOut /> Sign out
+                      </button>
+                    </div>
+                    <div className="sec">
+                      <div className="sec-h">
+                        <h2>Account security</h2>
+                        <span className="wallet-state">
+                          {unlocked ? "Unlocked" : "Locked"}
+                        </span>
+                      </div>
+                      <p className="hint">
+                        Your passkey controls the Stellar smart account. Each
+                        payment needs device approval.
+                      </p>
+                      <button
+                        className="btn btn-primary"
+                        disabled={!!busy}
+                        onClick={() => void run("Unlocking", unlock)}
+                      >
+                        <Lock />
+                        {busy || "Unlock with passkey"}
+                      </button>
+                      <p className="hint">
+                        Recovery and additional signers are planned.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="sec pending-page">
+                    <div className="pending-icon">
+                      {tab === "Cover" ? <Shield /> : <TrendingUp />}
+                    </div>
+                    <h2>
+                      {tab === "Cover" ? "Cover on Stellar" : "Earn on Stellar"}
+                    </h2>
+                    <p>
+                      {tab === "Cover"
+                        ? "FX protection and Soroban settlement are the next stage of the Stellar integration."
+                        : "Stellar liquidity pools and premium earnings are the next stage of the integration."}
+                    </p>
+                    <span className="wallet-state">Coming soon</span>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => setTab("Home")}
+                    >
+                      Back to Home <ArrowRight />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </main>
           </div>
-          {error && (
-            <div role="alert" className="error">
-              {error}
-            </div>
-          )}
-          {message && (
-            <div role="status" className="success">
-              {message}
-            </div>
-          )}
-          {!config?.sponsorshipConfigured && config && (
-            <div className="error">
-              The testnet fee payer needs configuration before wallets can be
-              created.
-            </div>
-          )}
-          {!profile ? (
-            <section className="login card">
-              <h2>Welcome to BlockFinaX</h2>
-              <p>Get started with a Stellar test wallet.</p>
+          <nav className="tabbar" aria-hidden={sheet ? true : undefined}>
+            {nav
+              .filter((x) => x.name !== "Earn")
+              .map(({ name, icon: Icon }) => (
+                <button
+                  className={`tab${tab === name ? " on" : ""}`}
+                  onClick={() => setTab(name)}
+                  key={name}
+                >
+                  <Icon />
+                  <span className="tl">{name}</span>
+                </button>
+              ))}
+          </nav>
+        </>
+      )}
+      {sheet && (
+        <Sheet
+          title={
+            sheet === "Send"
+              ? "Send payment"
+              : sheet === "Receive"
+                ? "Receive"
+                : sheet
+          }
+          close={() => setSheet(null)}
+        >
+          {sheet === "Sign in" || sheet === "Create account" ? (
+            <>
+              {config?.googleEnabled && (
+                <a className="btn btn-ghost google" href="/api/auth/google">
+                  <span className="google-g">G</span>Continue with Google
+                </a>
+              )}
+              <div className="auth-divider">or continue with email</div>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -257,199 +768,233 @@ function App() {
                   });
                 }}
               >
-                <label>
-                  Email address
+                <div className="field">
+                  <label htmlFor="email">Email address</label>
                   <input
+                    id="email"
+                    className="input"
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@company.com"
                   />
-                </label>
-                <button disabled={!!busy || !config}>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  disabled={!!busy || !config}
+                >
                   {busy || "Email me a sign-in link"}
                 </button>
               </form>
-              {config?.googleEnabled && (
-                <a className="google" href="/api/auth/google">
-                  Continue with Google
-                </a>
-              )}
-              <p className="fine">
-                Your email identifies your account. Your passkey signs
-                transactions.
+              <p className="hint">
+                Your passkey approves transactions after sign-in.
               </p>
-            </section>
-          ) : !profile.wallet ? (
-            <section className="card create">
-              <h2>Create your Stellar wallet</h2>
-              <p>
-                Your device will ask you to create a passkey. BlockFinaX then
-                deploys a smart account on Stellar testnet, with that passkey as
-                its signer.
+              {message && (
+                <div role="status" className="feedback success">
+                  {message}
+                </div>
+              )}
+              {error && (
+                <div role="alert" className="feedback error">
+                  {error}
+                </div>
+              )}
+            </>
+          ) : sheet === "Send" ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void run("Approving payment", send);
+              }}
+            >
+              <div className="field">
+                <label htmlFor="recipient">Recipient Stellar address</label>
+                <input
+                  id="recipient"
+                  className="input"
+                  required
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  placeholder="G… or C…"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="quantity">Amount · test XLM</label>
+                <input
+                  id="quantity"
+                  className="input"
+                  required
+                  inputMode="decimal"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <p className="hint">
+                Available: {balance} test XLM · Stellar testnet
+              </p>
+              {!unlocked && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  disabled={!!busy}
+                  onClick={() => void run("Unlocking", unlock)}
+                >
+                  <Lock />
+                  Unlock with passkey
+                </button>
+              )}
+              <button
+                className="btn btn-primary"
+                disabled={!!busy || !unlocked}
+              >
+                {busy || "Approve with passkey and send"}
+              </button>
+              {error && (
+                <div role="alert" className="feedback error">
+                  {error}
+                </div>
+              )}
+              {message && (
+                <div role="status" className="feedback success">
+                  {message}
+                </div>
+              )}
+            </form>
+          ) : sheet === "Receive" ? (
+            <>
+              <div className="receive-mark">
+                <WalletIcon />
+              </div>
+              <div className="field address">
+                <label>Your Stellar address</label>
+                <code>{fullAddress}</code>
+              </div>
+              <button className="btn btn-ghost" onClick={copy}>
+                <Copy /> Copy address
+              </button>
+              <p className="hint">
+                Only send Stellar testnet assets to this address.
               </p>
               <button
-                disabled={!!busy || !config?.sponsorshipConfigured}
-                onClick={() => void run("Creating wallet", create)}
+                className="btn btn-primary"
+                disabled={!!busy}
+                onClick={() =>
+                  void run("Receiving test funds", async () => {
+                    await api("/wallet/faucet", {});
+                    await refresh();
+                    setMessage("100 test XLM received.");
+                  })
+                }
               >
-                {busy || "Create wallet with a passkey"}
+                {busy || "Receive test funds"}
               </button>
-              <p className="fine">
-                Keep access to your passkey. Email sign-in cannot recover a lost
-                signing key.
-              </p>
-            </section>
-          ) : (
-            <>
-              <div className="grid">
-                <section className="card balance">
-                  <div className="row">
-                    <span>Available test balance</span>
-                    <span className="pill">XLM · TESTNET</span>
-                  </div>
-                  <h2>
-                    {balance}
-                    <small> test XLM</small>
-                  </h2>
-                  <div className="actions">
-                    <button
-                      disabled={!!busy}
-                      onClick={() => {
-                        setTab("Send payment");
-                      }}
-                    >
-                      Send payment
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={!!busy}
-                      onClick={() =>
-                        void run("Receiving test funds", async () => {
-                          await api("/wallet/faucet", {});
-                          await refresh();
-                          setMessage("100 test XLM received.");
-                        })
-                      }
-                    >
-                      Receive test funds
-                    </button>
-                  </div>
-                  <p className="fine">100 test XLM, once every 24 hours.</p>
-                </section>
-                <section className="card">
-                  <div className="row">
-                    <h3>Account security</h3>
-                    <span className="pill">
-                      {unlocked ? "Unlocked" : "Locked"}
-                    </span>
-                  </div>
-                  <p>Passkey-controlled smart account</p>
-                  <button
-                    className="secondary"
-                    disabled={!!busy}
-                    onClick={() => void run("Unlocking", unlock)}
-                  >
-                    {busy || "Unlock with passkey"}
-                  </button>
-                  <p className="fine">
-                    Every payment requires a separate device approval.
-                  </p>
-                </section>
-              </div>
-              <section className="card address">
-                <h3>Your Stellar address</h3>
-                <code>{profile.wallet.contract}</code>
-                <button
-                  className="text"
-                  onClick={() =>
-                    void run("Copying", async () => {
-                      await navigator.clipboard.writeText(
-                        profile.wallet!.contract,
-                      );
-                      setMessage("Address copied.");
-                    })
-                  }
-                >
-                  Copy address
-                </button>
-              </section>
-              {tab === "Send payment" && (
-                <section className="card payment">
-                  <h2>Send a test payment</h2>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void run("Approving payment", send);
-                    }}
-                  >
-                    <label>
-                      Recipient Stellar address
-                      <input
-                        required
-                        value={recipient}
-                        onChange={(e) => setRecipient(e.target.value)}
-                        placeholder="G… or C…"
-                      />
-                    </label>
-                    <label>
-                      Amount · test XLM
-                      <input
-                        required
-                        inputMode="decimal"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        placeholder="10.00"
-                      />
-                    </label>
-                    <button disabled={!!busy || !unlocked}>
-                      {busy || "Approve with passkey and send"}
-                    </button>
-                    {!unlocked && (
-                      <p className="fine">Unlock your wallet before sending.</p>
-                    )}
-                  </form>
-                </section>
-              )}
-              <section className="card">
-                <div className="row">
-                  <h2>Recent activity</h2>
-                  <button
-                    className="text"
-                    disabled={!!busy}
-                    onClick={() => void run("Refreshing", refresh)}
-                  >
-                    Refresh
-                  </button>
+              <p className="hint">100 test XLM, once every 24 hours.</p>
+              {message && (
+                <div role="status" className="feedback success">
+                  {message}
                 </div>
-                {profile.events.length ? (
-                  profile.events.map((event, i) => (
-                    <div className="event" key={i}>
-                      <div>
-                        <strong>{event.kind}</strong>
-                        <small>
-                          {new Date(event.created).toLocaleString()}
-                        </small>
-                      </div>
-                      <a
-                        target="_blank"
-                        rel="noreferrer"
-                        href={`https://stellar.expert/explorer/testnet/tx/${event.hash}`}
-                      >
-                        View transaction ↗
-                      </a>
-                    </div>
-                  ))
-                ) : (
-                  <p>No transactions yet.</p>
-                )}
-              </section>
+              )}
+              {error && (
+                <div role="alert" className="feedback error">
+                  {error}
+                </div>
+              )}
             </>
+          ) : sheet === "History" ? (
+            <div className="list act">
+              {profile?.events.map((event, i) => (
+                <a
+                  className="row"
+                  key={i}
+                  href={`https://stellar.expert/explorer/testnet/tx/${event.hash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <span className="actico">
+                    <Check />
+                  </span>
+                  <div className="r-main">
+                    <div className="r1">{event.kind}</div>
+                    <div className="r2">
+                      {new Date(event.created).toLocaleString()}
+                    </div>
+                  </div>
+                  <ArrowRight />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="hint">You're up to date. No new notifications.</p>
           )}
-          <footer>BlockFinaX · Connecting Global Trade</footer>
-        </div>
-      </main>
+        </Sheet>
+      )}
     </div>
+  );
+}
+function Sheet({
+  title,
+  close,
+  children,
+}: {
+  title: string;
+  close: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = document.querySelector<HTMLElement>(".sheet.on");
+    const focusables = () =>
+      Array.from(
+        dialog?.querySelectorAll<HTMLElement>(
+          "button:not(:disabled),a[href],input:not(:disabled)",
+        ) || [],
+      );
+    focusables()[0]?.focus();
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+      if (event.key === "Tab") {
+        const elements = focusables();
+        const first = elements[0],
+          last = elements[elements.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
+  }, []);
+  return (
+    <>
+      <div className="sheet-scrim on" onClick={close} />
+      <section
+        className="sheet on"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="grab" />
+        <div className="sheet-h">
+          <h3>{title}</h3>
+          <button className="sheet-x" aria-label="Close" onClick={close}>
+            <X />
+          </button>
+        </div>
+        <div className="wallet-sheet-body">{children}</div>
+      </section>
+    </>
   );
 }
 createRoot(document.getElementById("root")!).render(<App />);

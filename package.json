@@ -25,6 +25,7 @@
     "google-auth-library": "^10.4.0",
     "helmet": "^8.1.0",
     "jose": "^6.1.0",
+    "lucide-react": "^0.453.0",
     "nodemailer": "10.0.16",
     "passkey-kit": "0.14.0",
     "passkey-kit-sdk": "0.8.0",

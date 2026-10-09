@@ -8,6 +8,8 @@ export default defineConfig({
       process.env.NODE_ENV || "development",
     ),
   },
-  server: { proxy: { "/api": "http://127.0.0.1:4100" } },
+  server: {
+    proxy: { "/api": process.env.API_PROXY_URL || "http://127.0.0.1:4100" },
+  },
   build: { outDir: "dist", commonjsOptions: { transformMixedEsModules: true } },
 });

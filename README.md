@@ -16,7 +16,7 @@ npm run setup:testnet
 npm run dev
 ```
 
-Open **http://localhost:5173**. Enter an email address. Without SMTP configured, the one-use sign-in link appears in the API terminal. Open that link, create a passkey, and click **Receive test funds**. To test payments, create another wallet in a second browser profile and send to its `C…` address. A funded Stellar `G…` account also works as a recipient.
+Open **http://localhost:5173**. Click **Sign in**, then enter an email address. Without SMTP configured, the one-use sign-in link appears in the API terminal. Open that link, create a passkey, and open **Receive** and click **Receive test funds**. To test payments, create another wallet in a second browser profile and send to its `C…` address. A funded Stellar `G…` account also works as a recipient.
 
 The setup script generates a fee-payer key, funds it through Friendbot and writes an ignored `.env` with restrictive file permissions. It never prints the secret. All activity uses Stellar **testnet**; the server fixes the network passphrase to testnet.
 
@@ -31,7 +31,7 @@ The setup script generates a fee-payer key, funds it through Friendbot and write
 - Live test XLM balance, daily test funding, passkey-approved payments and confirmed transaction history.
 - A self-hosted transaction sponsor. It accepts only the signed user's wallet transferring the approved test XLM contract, with a 1,000 XLM payment limit and a 10 XLM sponsorship fee cap. Stellar verifies the contract authorization.
 - SQLite storage and serialized fee-account submission to avoid sequence collisions in this single-process service.
-- BlockFinaX logo and brand colours, responsive wallet interface.
+- The current BlockFinaX app interface: original signed-in styles, Geist fonts, logo, Home/Cover/Earn/Profile navigation, dark/light theme, balance cards and responsive payment sheets. Cover, Earn and oracle feeds show their pending Stellar state.
 
 Email or Google sign-in does not authorize payments or recover a lost passkey. Passkeys may sync through the user's device provider; that is not a BlockFinaX recovery service. Keep your passkey available. Additional signers, recovery, institutional approval policies, custom asset issuance, hedge contracts, FX oracle integration and mainnet release remain subsequent development.
 
